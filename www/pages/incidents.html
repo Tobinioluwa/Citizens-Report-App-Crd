@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Incidents Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap; /* Allows sections to wrap on smaller screens */
+            justify-content: space-between;
+        }
+        .section {
+            flex: 1 1 45%; /* Flex-grow, flex-shrink, flex-basis */
+            padding: 20px;
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            margin: 10px; /* Adds spacing between sections */
+        }
+        input, select, button {
+            width: 95%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+        button {
+            background-color: blue;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: lightblue;
+        }
+        #incidentList {
+            margin-top: 20px;
+        }
+        .incident-card {
+            background-color: #fafafa;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
+        .incident-image {
+            max-width: 100%;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .map-container {
+            width: 100%;
+            height: 200px; /* Adjust height as needed */
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Incidents</h1>
+    
+    <div class="container">
+        <!-- Incident Reporting Section -->
+        <div class="section">
+            <h2>Report an Incident</h2>
+            <input type="text" id="incidentDescription" placeholder="Describe the incident" required />
+            <select id="incidentCategory" required>
+                <option value="">Select Category</option>
+                <option value="Accident">Accident</option>
+                <option value="Fighting">Fighting</option>
+                <option value="Rioting">Rioting</option>
+                <option value="Murder">Murder</option>
+                <option value="Kidnapping">Kidnapping</option>
+                <option value="Theft">Theft</option>
+            </select>
+            <input type="file" id="incidentImage" accept="image/*" required />
+            <button onclick="addIncident()">Submit Incident</button>
+            <p id="incidentMessage"></p>
+        </div>
+
+        <!-- View Submitted Incidents -->
+        <div class="section">
+            <h2>Submitted Incidents</h2>
+            <select id="categoryFilter" onchange="filterIncidents()">
+                <option value="">Filter by Category</option>
+                <option value="Accident">Accident</option>
+                <option value="Fighting">Fighting</option>
+                <option value="Rioting">Rioting</option>
+                <option value="Murder">Murder</option>
+                <option value="Kidnapping">Kidnapping</option>
+                <option value="Theft">Theft</option>
+            </select>
+            <div id="incidentList"></div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, where, onSnapshot } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+        import { getStorage, ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-storage.js";
+
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQtlT_cmWxlOsCgb7KJELS4cXl_DBQPWU",
+            authDomain: "citizensapp-a9bd9.firebaseapp.com",
+            projectId: "citizensapp-a9bd9",
+            storageBucket: "citizensapp-a9bd9.appspot.com",
+            messagingSenderId: "911458998250",
+            appId: "1:911458998250:web:0c4d4c935c3784d6f50493",
+            measurementId: "G-Q556QCYZ5S",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const storage = getStorage(app);
+
+        // Ensure the user is authenticated before showing the page
+        onAuthStateChanged(auth, (user) => {
+            if (!user) {
+                window.location.href = "signup.html"; // Redirect to signup if not logged in
+            }
+        });
+
+        // Add new incident
+        async function addIncident() {
+            const description = document.getElementById("incidentDescription").value;
+            const category = document.getElementById("incidentCategory").value;
+            const imageFile = document.getElementById("incidentImage").files[0];
+            const messageElement = document.getElementById("incidentMessage");
+
+            if (!description || !category || !imageFile) {
+                messageElement.textContent = "Please fill in all fields.";
+                return;
+            }
+
+            try {
+                const position = await getCurrentLocation();
+                // Upload image to Firebase Storage
+                const imageRef = ref(storage, 'images/' + imageFile.name);
+                await uploadBytes(imageRef, imageFile);
+                const imageUrl = await getDownloadURL(imageRef);
+
+                // Store incident details in Firestore
+                await addDoc(collection(db, "incidents"), {
+                    description,
+                    category,
+                    location: position,
+                    imageUrl: imageUrl,
+                    timestamp: new Date(),
+                });
+                messageElement.textContent = "Incident submitted successfully!";
+                document.getElementById("incidentDescription").value = "";
+                document.getElementById("incidentCategory").value = "";
+                document.getElementById("incidentImage").value = "";
+            } catch (error) {
+                messageElement.textContent = "Error submitting incident: " + error.message;
+            }
+        }
+
+        // Get current geolocation
+        function getCurrentLocation() {
+            return new Promise((resolve, reject) => {
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition((position) => {
+                        resolve({
+                            lat: position.coords.latitude,
+                            lng: position.coords.longitude,
+                        });
+                    }, reject);
+                } else {
+                    reject(new Error("Geolocation is not supported by this browser."));
+                }
+            });
+        }
+
+        // Retrieve and display incidents
+        function getIncidents(category = "") {
+            const q = category ? query(collection(db, "incidents"), where("category", "==", category)) : collection(db, "incidents");
+            onSnapshot(q, (snapshot) => {
+                const incidentList = document.getElementById("incidentList");
+                incidentList.innerHTML = ""; // Clear the list before appending
+                snapshot.forEach((doc) => {
+                    const incidentData = doc.data();
+                    const incident = document.createElement("div");
+                    incident.className = "incident-card"; // Add a class for styling
+                    incident.innerHTML = `
+                        <img src="${incidentData.imageUrl}" alt="Incident Image" class="incident-image" />
+                        <p><strong>Description:</strong> ${incidentData.description}</p>
+                        <p><strong>Category:</strong> ${incidentData.category}</p>
+                        <div class="map-container">
+                            <iframe
+                                width="100%"
+                                height="100%"
+                                src="https://www.google.com/maps/embed/v1/view?key=AIzaSyCQtlT_cmWxlOsCgb7KJELS4cXl_DBQPWU&center=${incidentData.location.lat},${incidentData.location.lng}&zoom=15"
+                                allowfullscreen>
+                            </iframe>
+                        </div>
+                    `;
+                    incidentList.appendChild(incident);
+                });
+            });
+        }
+
+        // Filter incidents by category
+        function filterIncidents() {
+            const category = document.getElementById("categoryFilter").value;
+            getIncidents(category);
+        }
+
+        // Fetch incidents on page load
+        getIncidents();
+
+        // Make functions accessible globally
+        window.addIncident = addIncident;
+        window.filterIncidents = filterIncidents;
+    </script>
+</body>
+</html>

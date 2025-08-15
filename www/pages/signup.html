@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Sign Up</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+            background-color: #fff;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            width: 300px;
+        }
+        input {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        p {
+            color: red;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Sign Up</h1>
+        <input type="email" id="signupEmail" placeholder="Email" required />
+        <input type="password" id="signupPassword" placeholder="Password" required />
+        <button id="signupButton">Sign Up</button>
+        <p id="signupMessage"></p>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-app.js";
+        import { getAuth, createUserWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+
+        // Initialize Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCQtlT_cmWxlOsCgb7KJELS4cXl_DBQPWU",
+            authDomain: "citizensapp-a9bd9.firebaseapp.com",
+            projectId: "citizensapp-a9bd9",
+            storageBucket: "citizensapp-a9bd9.appspot.com",
+            messagingSenderId: "911458998250",
+            appId: "1:911458998250:web:0c4d4c935c3784d6f50493",
+            measurementId: "G-Q556QCYZ5S",
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Helper function to validate email format
+        function isValidEmail(email) {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email);
+        }
+
+        // Signup function
+        function signup() {
+            const email = document.getElementById("signupEmail").value;
+            const password = document.getElementById("signupPassword").value;
+            const messageElement = document.getElementById("signupMessage");
+
+            // Clear previous message
+            messageElement.innerText = '';
+
+            // Validate email format
+            if (!isValidEmail(email)) {
+                messageElement.innerText = "Please enter a valid email address.";
+                return;
+            }
+
+            // Validate password length (Firebase requires at least 6 characters)
+            if (password.length < 6) {
+                messageElement.innerText = "Password must be at least 6 characters long.";
+                return;
+            }
+
+            // Create user with Firebase Authentication
+            createUserWithEmailAndPassword(auth, email, password)
+                .then((userCredential) => {
+                    // Signed in
+                    localStorage.setItem("jwtToken", userCredential.user.uid); // Store user ID as a token
+                    window.location.href = "incidents.html"; // Redirect to incidents page
+                })
+                .catch((error) => {
+                    const errorCode = error.code;
+                    const errorMessage = error.message;
+
+                    // Handle common Firebase signup errors
+                    if (errorCode === 'auth/email-already-in-use') {
+                        messageElement.innerText = "The email address is already in use.";
+                    } else if (errorCode === 'auth/invalid-email') {
+                        messageElement.innerText = "The email address is invalid.";
+                    } else if (errorCode === 'auth/weak-password') {
+                        messageElement.innerText = "The password is too weak.";
+                    } else {
+                        messageElement.innerText = errorMessage; // Default error message
+                    }
+                });
+        }
+
+        // Ensure the signup function is defined before adding event listener
+        document.getElementById("signupButton").addEventListener("click", signup);
+    </script>
+</body>
+</html>
